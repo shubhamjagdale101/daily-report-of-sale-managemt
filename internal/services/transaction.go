@@ -124,10 +124,39 @@ func (s *TransactionService) GetReport(startDate, endDate time.Time) ([]models.T
 }
 
 func (s *TransactionService) CreateCSVFile(fileName string, transactions []models.Transaction) (*bytes.Buffer, error) {
-	var buf *bytes.Buffer
+	buf := &bytes.Buffer{}
+
+	type TransactionCSV struct {
+		CustomerName string  `csv:"customer_name"`
+		Amount 	 float64 `csv:"amount"`
+		TransactionType string  `csv:"transaction_type"`
+		GoldWeight float64 `csv:"gold_weight"`
+		GoldPrice float64 `csv:"gold_price"`
+		PaymentMethod string  `csv:"payment_method"`
+		Time string `csv:"time"`
+		Description string  `csv:"description"`
+	}
+
+	// Define the desired time format
+	const timeFormat = "2006-01-02 15:04:05"
+
+	// Convert []models.Transaction to []TransactionCSV
+	var csvData []TransactionCSV
+	for _, t := range transactions {
+		csvData = append(csvData, TransactionCSV{
+			CustomerName:    t.Customer.Name,
+			Amount:          t.Amount,
+			TransactionType: string(t.Type),
+			GoldWeight:      t.GoldWeight,
+			GoldPrice:       t.GoldPrice,
+			PaymentMethod:   string(t.PaymentMethod),
+			Time:            t.CreatedAt.Format(timeFormat),
+			Description:     t.Description,
+		})
+	}
 
 	// Marshal the people array to the CSV file
-	if err := gocsv.Marshal(&transactions, buf); err != nil {
+	if err := gocsv.Marshal(&csvData, buf); err != nil {
 		return nil, err
 	}
 

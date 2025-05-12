@@ -13,5 +13,4 @@ type Customer struct {
 	BorrowedAmount float64   `gorm:"default:0" json:"borrowed_amount"` // in currency
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
-	Transactions []Transaction `gorm:"foreignKey:CustomerID" json:"transactions,omitempty"`
 }

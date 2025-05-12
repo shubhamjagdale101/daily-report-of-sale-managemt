@@ -2,8 +2,10 @@ package repositories
 
 import (
 	"gold-management-system/internal/models"
-	"gorm.io/gorm"
+	"sort"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type TransactionRepository struct {
@@ -52,6 +54,9 @@ func (r *TransactionRepository) GetMonthlyReport(year int, month time.Month) ([]
 
 func (r *TransactionRepository) GetReport(startDate time.Time, endDate time.Time) ([]models.Transaction, error) {	
 	var transactions []models.Transaction
-	err := r.db.Where("created_at BETWEEN ? AND ?", startDate, endDate).Find(&transactions).Error
+	err := r.db.Preload("Customer").Where("created_at BETWEEN ? AND ?", startDate, endDate).Find(&transactions).Error
+	sort.Slice(transactions, func(i, j int) bool {
+		return transactions[i].PaymentMethod < transactions[j].PaymentMethod
+	})
 	return transactions, err
 }

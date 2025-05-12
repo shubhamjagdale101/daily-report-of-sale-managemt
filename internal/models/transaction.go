@@ -22,6 +22,7 @@ const (
 type Transaction struct {
 	ID          uint            `gorm:"primaryKey" json:"id"`
 	CustomerID  uint            `gorm:"not null" json:"customer_id"`
+	Customer    Customer        `gorm:"foreignKey:CustomerID" json:"-"`
 	Type        TransactionType `gorm:"not null" json:"type"`
 	GoldWeight  float64         `gorm:"not null" json:"gold_weight"` // in grams
 	GoldPrice   float64         `gorm:"not null" json:"gold_price"`  // per gram
