@@ -19,7 +19,7 @@ func (r *CustomerRepository) Create(customer *models.Customer) error {
 
 func (r *CustomerRepository) GetByID(id uint) (*models.Customer, error) {
 	var customer models.Customer
-	err := r.db.Preload("Transactions").First(&customer, id).Error
+	err := r.db.First(&customer, id).Error
 	return &customer, err
 }
 

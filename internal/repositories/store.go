@@ -24,7 +24,7 @@ func (r *StoreRepository) Update(store *models.Store) error {
 
 func (r *StoreRepository) GetByName(storeName string) (*models.Store, error) {
 	var store models.Store
-	err := r.db.Where("name = ?", storeName).First(&store).Error
+	err := r.db.Preload("CreatedBy").Preload("ManagedBy").Where("name = ?", storeName).First(&store).Error
 	return &store, err
 }
 

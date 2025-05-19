@@ -2,8 +2,10 @@ package services
 
 import (
 	"bytes"
+	"errors"
 	"gold-management-system/internal/models"
 	"gold-management-system/internal/repositories"
+	"log"
 	"time"
 
 	"github.com/gocarina/gocsv"
@@ -24,15 +26,21 @@ func NewTransactionService(db *gorm.DB) *TransactionService {
 	}
 }
 
-func (s *TransactionService) CreateTransaction(adminID, customerID uint, transactionType string, goldWeight, goldPrice float64, description string, storeName string, paymentMethod string) (*models.Transaction, error) {
-	// Get customer
-	customer, err := s.customerRepo.GetByID(customerID)
+func (s *TransactionService) CreateTransaction(adminID, customerID uint, transactionType string, goldWeight, goldPrice float64, description string, storeName string, paymentMethod string, adminId uint) (*models.Transaction, error) {
+	// Get store
+	store, err := s.StoreRepo.GetByName(storeName)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get store
-	store, err := s.StoreRepo.GetByName(storeName)
+	// check admin has access to manage the store
+	if !store.HaveAccessToManage(adminId) {
+		return nil, errors.New("admin does not have access to manage this store")
+	}
+
+
+	// Get customer
+	customer, err := s.customerRepo.GetByID(customerID)
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +115,17 @@ func (s *TransactionService) GetTransactionByID(id uint) (*models.Transaction, e
 	return s.transactionRepo.GetByID(id)
 }
 
-func (s *TransactionService) GetAllTransactions() ([]models.Transaction, error) {
-	return s.transactionRepo.GetAll()
+func (s *TransactionService) GetAllTransactions(page int, size int, operator string, operation string, value string) ([]models.Transaction, error) {
+	log.Print(operator)
+	if operator == "type" {
+		return s.transactionRepo.GetByType(page, size, value)
+	} else if operator == "paymentMethod" {
+		return s.transactionRepo.GetByPaymentMethod(page, size, value)
+	} else if operator == "createdAt" {
+		return s.transactionRepo.GetByCreatedAt(page, size, value)
+	}
+
+	return s.transactionRepo.GetAll(page, size)
 }
 
 func (s *TransactionService) GetDailyReport(date time.Time) ([]models.Transaction, error) {

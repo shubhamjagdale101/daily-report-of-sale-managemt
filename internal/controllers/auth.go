@@ -27,14 +27,13 @@ func (ctrl *AuthController) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := ctrl.service.Login(input.Email, input.Password)
+	admin, err := ctrl.service.Login(input.Email, input.Password, c)
 	if err != nil {
 		utils.SendErrorResponse(c, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
 
-	c.SetCookie("bearer-token", token, 3600, "/", "", true, true)
-	utils.SendSuccessResponse(c, http.StatusOK, "Login successful", gin.H{"token": token})
+	utils.SendSuccessResponse(c, http.StatusOK, "Login successful", gin.H{"name" : admin.Name, "email": admin.Email, "createdAt" : admin.CreatedAt})
 }
 
 func (ctrl *AuthController) Register(c *gin.Context) {
@@ -55,7 +54,17 @@ func (ctrl *AuthController) Register(c *gin.Context) {
 		return
 	}
 
+	if err :=ctrl.service.GenerateJWTToken(admin.ID, c); err != nil {
+		utils.SendErrorResponse(c, http.StatusInternalServerError, "Failed to generate token")
+		return
+	}
+
 	// Don't return password hash
 	admin.Password = ""
 	utils.SendSuccessResponse(c, http.StatusCreated, "Registration successful", admin)
+}
+
+func (ctrl *AuthController) Logout(c *gin.Context) {
+	c.SetCookie("bearer-token", "", -1, "/", "", false, true)
+	utils.SendSuccessResponse(c, http.StatusOK, "Logout successful", nil)
 }

@@ -6,6 +6,7 @@ import (
 	"gold-management-system/internal/repositories"
 	"gold-management-system/internal/utils"
 
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
@@ -38,20 +39,31 @@ func (s *AuthService) Register(name, email, password string) (*models.Admin, err
 	return admin, nil
 }
 
-func (s *AuthService) Login(email, password string) (string, error) {
+func (s *AuthService) GenerateJWTToken(adminID uint, c *gin.Context)  error {
+	token, err := utils.GenerateJWTToken(adminID, s.cfg)
+	if err != nil {
+		return err
+	}
+
+	// Set the token in the cookie
+	c.SetCookie("bearer-token", token, 3600, "/", "", false, true)
+	return nil
+}
+
+
+func (s *AuthService) Login(email, password string, c *gin.Context) (*models.Admin, error) {
 	admin, err := s.repo.GetByEmail(email)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := admin.CheckPassword(password); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	token, err := utils.GenerateJWTToken(admin.ID, s.cfg)
-	if err != nil {
-		return "", err
+	if err := s.GenerateJWTToken(admin.ID, c); err != nil {
+    	return nil, err
 	}
 
-	return token, nil
+	return admin, nil
 }

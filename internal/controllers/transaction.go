@@ -34,7 +34,17 @@ func (ctrl *TransactionController) CreateTransaction(c *gin.Context) {
 		return
 	}
 
-	adminID := c.GetUint("admin_id")
+	adminIdInterface, ok := c.Get("admin_id")
+	if !ok {
+		utils.SendErrorResponse(c, http.StatusUnauthorized, "Admin ID not found in context")
+		return
+	}
+	adminID, ok := adminIdInterface.(uint)
+	if !ok {
+		utils.SendErrorResponse(c, http.StatusUnauthorized, "Invalid admin ID")
+		return
+	}
+
 	transaction, err := ctrl.service.CreateTransaction(
 		adminID,
 		input.CustomerID,
@@ -44,6 +54,7 @@ func (ctrl *TransactionController) CreateTransaction(c *gin.Context) {
 		input.Description,
 		input.StoreName,
 		input.PaymentMethod,
+		adminID,
 	)
 	if err != nil {
 		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
@@ -70,7 +81,26 @@ func (ctrl *TransactionController) GetTransactionByID(c *gin.Context) {
 }
 
 func (ctrl *TransactionController) GetAllTransactions(c *gin.Context) {
-	transactions, err := ctrl.service.GetAllTransactions()
+	pageStr := c.DefaultQuery("page", "1")
+	sizeStr := c.DefaultQuery("size", "10")
+	operator := c.Query("operator")
+	operation := c.Query("operation")
+	value := c.Query("value")
+
+	// Convert to int
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid page value")
+		return
+	}
+
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil || size < 1 {
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid size value")
+		return
+	}
+
+	transactions, err := ctrl.service.GetAllTransactions(page, size, operator, operation, value)
 	if err != nil {
 		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
