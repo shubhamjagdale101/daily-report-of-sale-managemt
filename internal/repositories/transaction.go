@@ -35,7 +35,7 @@ func (r *TransactionRepository) GetByID(id uint) (*models.Transaction, error) {
 
 func (r *TransactionRepository) GetAll(page int, size int) ([]models.Transaction, error) {
 	var transactions []models.Transaction
-	err := r.db.Limit(size).Offset((page-1)*size).Find(&transactions).Error
+	err := r.db.Limit(size).Offset(page*size).Order("created_at desc").Find(&transactions).Error
 	return transactions, err
 }
 

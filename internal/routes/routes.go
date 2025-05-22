@@ -14,7 +14,6 @@ import (
 
 func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	router := gin.Default()
-	router.RedirectTrailingSlash = false
 
 	// Set up CORS
 	router.Use(cors.New(cors.Config{
@@ -55,6 +54,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		authGroup.POST("/login", authController.Login)
 		authGroup.POST("/register", authController.Register)
 		authGroup.POST("/logout", authController.Logout)
+		authGroup.GET("/ping", authController.Ping)
 	}
 
 	// Admin routes (protected)
@@ -75,7 +75,6 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		customerGroup.PUT("/:id", customerController.UpdateCustomer)
 		customerGroup.DELETE("/:id", customerController.DeleteCustomer)
 		customerGroup.GET("/:id/transactions", customerController.GetCustomerTransactions)
-		customerGroup.GET("/:id/balance", customerController.GetCustomerGoldBalance)
 	}
 
 	// Transaction routes (protected)
@@ -85,6 +84,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		transactionGroup.POST("/", transactionController.CreateTransaction)
 		transactionGroup.GET("/", transactionController.GetAllTransactions)
 		transactionGroup.GET("/:id", transactionController.GetTransactionByID)
+		transactionGroup.POST("/filter", transactionController.GetTransactionsByFilters)
 		transactionGroup.GET("/report/daily", transactionController.GetDailyReport)
 		transactionGroup.GET("/report/monthly", transactionController.GetMonthlyReport)
 		transactionGroup.GET("/report/range", transactionController.GetReport)
@@ -95,11 +95,19 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	storeGroup.Use(middleware.AuthMiddleware(cfg))
 	{
 		storeGroup.POST("/", storeController.CreateStore)
-		storeGroup.GET("/", storeController.GetAllStores)
-		storeGroup.GET("/:name", storeController.GetStoreByName)
-		storeGroup.PUT("/:name", storeController.UpdateStore)
-		storeGroup.DELETE("/:name", storeController.DeleteStore)
+		storeGroup.GET("/all-stores", storeController.GetAllStores)
+		storeGroup.GET("/", storeController.GetAllStoresByAdmin)
+		storeGroup.GET("/:id", storeController.GetStoreByName)
+		storeGroup.PUT("/:id", storeController.UpdateStore)
+		storeGroup.DELETE("/:id", storeController.DeleteStore)
 		storeGroup.PUT("/mangedBy", storeController.UpdateStoreManagedBy)
+	}
+
+	// Dashboard routes (protected)
+	dashboardGroup := router.Group("/dashboard")
+	dashboardGroup.Use(middleware.AuthMiddleware(cfg))
+	{
+		dashboardGroup.GET("/", transactionController.GetDashboard)
 	}
 
 	return router

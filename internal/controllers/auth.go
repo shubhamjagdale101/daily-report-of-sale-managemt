@@ -68,3 +68,7 @@ func (ctrl *AuthController) Logout(c *gin.Context) {
 	c.SetCookie("bearer-token", "", -1, "/", "", false, true)
 	utils.SendSuccessResponse(c, http.StatusOK, "Logout successful", nil)
 }
+
+func (ctrl *AuthController) Ping(c *gin.Context) {
+	utils.SendSuccessResponse(c, http.StatusOK, "Pong", nil)
+}

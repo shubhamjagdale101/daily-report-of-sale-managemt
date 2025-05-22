@@ -3,7 +3,9 @@ package controllers
 import (
 	"gold-management-system/internal/models"
 	"gold-management-system/internal/services"
+	"gold-management-system/internal/utils"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,25 +25,25 @@ func NewStoreController(storeService *services.StoreService, adminService *servi
 func (sc *StoreController) CreateStore(c *gin.Context) {
 	var store models.Store
 	if err := c.ShouldBindJSON(&store); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.SendErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	adminIdInterface, ok := c.Get("admin_id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		utils.SendErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	adminId, ok := adminIdInterface.(uint)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		utils.SendErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
 	admin, err := sc.adminService.GetAdminByID(adminId)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Admin not found"})
+		utils.SendErrorResponse(c, http.StatusNotFound, "Admin not found")
 		return
 	}
 
@@ -49,66 +51,105 @@ func (sc *StoreController) CreateStore(c *gin.Context) {
 	store.ManagedBy = []models.Admin{*admin}
 
 	if err := sc.storeService.CreateStore(&store); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	c.JSON(http.StatusCreated, store)
+
+	utils.SendSuccessResponse(c, http.StatusCreated, "stores created successfully", store);
 }
 
 func (sc *StoreController) GetAllStores(c *gin.Context) {
-	stores, err := sc.storeService.GetAllStores()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	pageStr := c.DefaultQuery("page", "1")
+	sizeStr := c.DefaultQuery("size", "10")
+
+	// Convert to int
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 0 {
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid page value")
 		return
 	}
-	c.JSON(http.StatusOK, stores)
+
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil || size < 10 {
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid size value")
+		return
+	}
+
+	res, err := sc.storeService.GetAllStores(page, size)
+	if err != nil {
+		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	utils.SendSuccessResponse(c, http.StatusOK, "stores retrieved successfully", res)
 }
 
 func (sc *StoreController) GetStoreByName(c *gin.Context) {
-	name := c.Param("name")
-	store, err := sc.storeService.GetStoreByName(name)
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid store ID")
 		return
 	}
-	c.JSON(http.StatusOK, store)
+
+	store, err := sc.storeService.GetStoreByID(id)
+	if err != nil {
+		utils.SendErrorResponse(c, http.StatusNotFound, "Store not found")
+		return
+	}
+
+	utils.SendSuccessResponse(c, http.StatusOK, "Store retrieved successfully", store)
 }
 
 func (sc *StoreController) UpdateStore(c *gin.Context) {
-	name := c.Param("name")
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
 
-	store, err := sc.storeService.GetStoreByName(name)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Store not found"})
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid store ID")
+		return
+	}
+
+	store, err := sc.storeService.GetStoreByID(id)
+	if err != nil {
+		utils.SendErrorResponse(c, http.StatusNotFound, "Store not found")
 		return
 	}
 
 	if err := c.ShouldBindJSON(store); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.SendErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := sc.storeService.UpdateStore(store); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, store)
+	
+	utils.SendSuccessResponse(c, http.StatusOK, "Store updated successfully", store)
 }
 
 func (sc *StoreController) DeleteStore(c *gin.Context) {
-	name := c.Param("name")
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
 
-	store, err := sc.storeService.GetStoreByName(name)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Store not found"})
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid store ID")
+		return
+	}
+
+	store, err := sc.storeService.GetStoreByID(id)
+	if err != nil {
+		utils.SendErrorResponse(c, http.StatusNotFound, "Store not found")
 		return
 	}
 
 	if err := sc.storeService.DeleteStore(store); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Store deleted"})
+	
+	utils.SendSuccessResponse(c, http.StatusOK, "Store deleted successfully", gin.H{"message": "Store deleted"})
 }
 
 func (sc *StoreController) UpdateStoreManagedBy(c *gin.Context) {
@@ -118,45 +159,66 @@ func (sc *StoreController) UpdateStoreManagedBy(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.SendErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	store, err := sc.storeService.GetStoreByName(input.Name)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Store not found"})
+		utils.SendErrorResponse(c, http.StatusNotFound, "Store not found")
 		return
 	}
 
 	adminIdInterface, ok := c.Get("admin_id")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		utils.SendErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	adminId, ok := adminIdInterface.(uint)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		utils.SendErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 	
 	if store.AdminID != adminId {
-		c.JSON(http.StatusForbidden, gin.H{"error": "You are not authorized to manage this store"})
+		utils.SendErrorResponse(c, http.StatusForbidden, "You are not authorized to manage this store")
 		return
 	}
 
 	for _, adminId := range input.AdminIds {
 		admin, err := sc.adminService.GetAdminByID(adminId)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Admin not found"})
+			utils.SendErrorResponse(c, http.StatusNotFound, "Admin not found")
 			return
 		}
 		store.ManagedBy = append(store.ManagedBy, *admin)
 	}
 
 	if err := sc.storeService.UpdateStore(store); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, store)
+	utils.SendSuccessResponse(c, http.StatusOK, "Store updated successfully", store)
+}
+
+func (sc *StoreController) GetAllStoresByAdmin(c *gin.Context) {
+	adminIdInterface, ok := c.Get("admin_id")
+	if !ok {
+		utils.SendErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	adminId, ok := adminIdInterface.(uint64)
+	if !ok {
+		utils.SendErrorResponse(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	
+	stores, err := sc.storeService.GetStoreByAdminID(adminId)
+	if err != nil {
+		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	
+	utils.SendSuccessResponse(c, http.StatusOK, "Stores retrieved successfully", stores)
 }

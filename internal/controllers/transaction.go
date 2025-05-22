@@ -6,6 +6,7 @@ import (
 	"time"
 	"gold-management-system/internal/services"
 	"gold-management-system/internal/utils"
+	"gold-management-system/dto"
 
 	"github.com/gin-gonic/gin"
 )
@@ -83,24 +84,21 @@ func (ctrl *TransactionController) GetTransactionByID(c *gin.Context) {
 func (ctrl *TransactionController) GetAllTransactions(c *gin.Context) {
 	pageStr := c.DefaultQuery("page", "1")
 	sizeStr := c.DefaultQuery("size", "10")
-	operator := c.Query("operator")
-	operation := c.Query("operation")
-	value := c.Query("value")
 
 	// Convert to int
 	page, err := strconv.Atoi(pageStr)
-	if err != nil || page < 1 {
+	if err != nil || page < 0 {
 		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid page value")
 		return
 	}
 
 	size, err := strconv.Atoi(sizeStr)
-	if err != nil || size < 1 {
+	if err != nil || size < 10 {
 		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid size value")
 		return
 	}
 
-	transactions, err := ctrl.service.GetAllTransactions(page, size, operator, operation, value)
+	transactions, err := ctrl.service.GetAllTransactions(page, size)
 	if err != nil {
 		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
@@ -212,4 +210,72 @@ func (ctrl *TransactionController) GetMonthlyReport(c *gin.Context) {
 	}
 
 	utils.SendSuccessResponse(c, http.StatusOK, "Monthly report retrieved successfully", transactions)
+}
+
+func (ctrl *TransactionController) GetTransactionsByFilters(c *gin.Context) {
+	pageStr := c.DefaultQuery("page", "0")
+	sizeStr := c.DefaultQuery("size", "10")
+	
+
+	var filters []dto.Filter
+	if err := c.ShouldBindJSON(&filters); err != nil {
+		utils.SendErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Convert to int
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 0 {
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid page value")
+		return
+	}
+
+	size, err := strconv.Atoi(sizeStr)
+	if err != nil || size < 10 {
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid size value")
+		return
+	}
+
+	res, err := ctrl.service.GetTransactionsByFilters(page, size, filters)
+	if err != nil {
+		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.SendSuccessResponse(c, http.StatusOK, "Transactions retrieved successfully", res)
+}
+
+func (ctrl *TransactionController) GetDashboard(c *gin.Context) {
+	dateStr := c.Query("date")
+	durationStr := c.Query("duration")
+
+	var date time.Time
+	var err error
+	if dateStr == "" {
+		date = time.Now()
+	} else {
+		date, err = time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid date format. Use YYYY-MM-DD")
+			return
+		}
+	}
+
+	var duration int
+	if durationStr == "" {
+		duration = 1
+	} else {
+		duration, err = strconv.Atoi(durationStr)
+		if err != nil || duration < 1 {
+			utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid duration value")
+			return
+		}
+	}
+
+	dashboard, err := ctrl.service.GetDashboard(date, duration)
+	if err != nil {
+		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	utils.SendSuccessResponse(c, http.StatusOK, "Daily dashboard retrieved successfully", dashboard)
 }

@@ -25,8 +25,25 @@ func (s *StoreService) GetStoreByName(name string) (*models.Store, error) {
 	return s.storeRepo.GetByName(name)
 }
 
-func (s *StoreService) GetAllStores() ([]models.Store, error) {
-	return s.storeRepo.GetAll()
+func (s *StoreService) GetStoreByID(id uint64) (*models.Store, error) {
+	return s.storeRepo.GetByID(id)
+}
+
+func (s *StoreService) GetAllStores(page int, size int) (interface{}, error) {
+	count, err := s.storeRepo.Count()
+	if err != nil {
+		return nil, err
+	}
+
+	stores, err := s.storeRepo.GetAll(page, size)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"stores": stores,
+		"count":  count,
+	}, nil
 }
 
 func (s *StoreService) UpdateStore(store *models.Store) error {
@@ -35,4 +52,8 @@ func (s *StoreService) UpdateStore(store *models.Store) error {
 
 func (s *StoreService) DeleteStore(store *models.Store) error {
 	return s.storeRepo.Delete(store)
+}
+
+func (s *StoreService) GetStoreByAdminID(adminID uint64) ([]models.Store, error) {
+	return s.storeRepo.GetByAdminID(adminID)
 }

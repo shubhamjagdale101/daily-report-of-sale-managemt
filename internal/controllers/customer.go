@@ -34,17 +34,6 @@ func (ctrl *CustomerController) CreateCustomer(c *gin.Context) {
 }
 
 func (ctrl *CustomerController) GetAllCustomers(c *gin.Context) {
-	name := c.Query("name")
-	if name != "" {
-		customer, err := ctrl.service.GetCustomerByName(name)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Customer not found"})
-			return
-		}
-		c.JSON(http.StatusOK, customer)
-		return
-	}
-
 	customers, err := ctrl.service.GetAllCustomers()
 	if err != nil {
 		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
@@ -123,20 +112,4 @@ func (ctrl *CustomerController) GetCustomerTransactions(c *gin.Context) {
 	}
 
 	utils.SendSuccessResponse(c, http.StatusOK, "Customer transactions retrieved successfully", transactions)
-}
-
-func (ctrl *CustomerController) GetCustomerGoldBalance(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		utils.SendErrorResponse(c, http.StatusBadRequest, "Invalid customer ID")
-		return
-	}
-
-	balance, err := ctrl.service.GetCustomerGoldBalance(uint(id))
-	if err != nil {
-		utils.SendErrorResponse(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	utils.SendSuccessResponse(c, http.StatusOK, "Customer gold balance retrieved successfully", gin.H{"balance": balance})
 }

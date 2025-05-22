@@ -3,9 +3,9 @@ package services
 import (
 	"bytes"
 	"errors"
+	"gold-management-system/dto"
 	"gold-management-system/internal/models"
 	"gold-management-system/internal/repositories"
-	"log"
 	"time"
 
 	"github.com/gocarina/gocsv"
@@ -115,16 +115,7 @@ func (s *TransactionService) GetTransactionByID(id uint) (*models.Transaction, e
 	return s.transactionRepo.GetByID(id)
 }
 
-func (s *TransactionService) GetAllTransactions(page int, size int, operator string, operation string, value string) ([]models.Transaction, error) {
-	log.Print(operator)
-	if operator == "type" {
-		return s.transactionRepo.GetByType(page, size, value)
-	} else if operator == "paymentMethod" {
-		return s.transactionRepo.GetByPaymentMethod(page, size, value)
-	} else if operator == "createdAt" {
-		return s.transactionRepo.GetByCreatedAt(page, size, value)
-	}
-
+func (s *TransactionService) GetAllTransactions(page int, size int) ([]models.Transaction, error) {
 	return s.transactionRepo.GetAll(page, size)
 }
 
@@ -179,4 +170,87 @@ func (s *TransactionService) CreateCSVFile(fileName string, transactions []model
 
 	// Return the file for further use (or close later)
 	return buf, nil
+}
+
+func (s *TransactionService) GetTransactionsByFilters(page int, size int, filters []dto.Filter) (map[string]any, error) {
+	var transactions []models.Transaction
+	var totalCount int64
+
+	query := s.transactionRepo.DB().Model(&models.Transaction{})
+
+	for _, filter := range filters {
+		switch filter.Operation {
+		case "eq":
+			query = query.Where(filter.Operator+" = ?", filter.Value)
+		case "ne":
+			query = query.Where(filter.Operator+" != ?", filter.Value)
+		case "gt":
+			query = query.Where(filter.Operator+" > ?", filter.Value)
+		case "lt":
+			query = query.Where(filter.Operator+" < ?", filter.Value)
+		case "gte":
+			query = query.Where(filter.Operator+" >= ?", filter.Value)
+		case "lte":
+			query = query.Where(filter.Operator+" <= ?", filter.Value)
+		default:
+			return nil, errors.New("invalid operator")
+		}
+	}
+
+	if err := query.Count(&totalCount).Error; err != nil {
+		return nil, err
+	}
+
+	if err := query.Preload("Customer").Offset(page * size).Order("created_at desc").Limit(size).Find(&transactions).Error; err != nil {
+		return nil, err
+	}
+
+	var res map[string]any = make(map[string]any)
+	res["transactions"] = transactions
+	res["totalPages"] = int((totalCount + int64(size) - 1) / int64(size)) 
+	return res, nil
+}
+
+func (s *TransactionService) GetDashboard(endDate time.Time, durationInDays int) (interface{}, error) {
+	var transactions []models.Transaction
+
+	query := s.transactionRepo.DB().Model(&models.Transaction{})
+	query = query.Where("created_at between ? and ?", endDate.Add(-time.Duration(durationInDays)*24*time.Hour), endDate)
+	
+	if err := query.Find(&transactions).Error; err != nil { return nil, err }
+
+	var amountGiven float64 = 0
+	var amountTaken float64 = 0
+	var goldGiven float64 = 0
+	var goldTaken float64 = 0
+	var totalGoldTransaction float64 = 0
+	var totalAmountTransaction float64 = 0
+
+	for _, transaction := range transactions {
+		if transaction.Type == models.Buy {
+			if transaction.PaymentMethod == models.BorrowedMoney {
+				amountGiven += transaction.Amount
+			} else if transaction.PaymentMethod == models.BorrowedGold {
+				goldGiven += transaction.GoldWeight
+			}
+		} else {
+			if transaction.PaymentMethod == models.BorrowedMoney {
+				amountTaken += transaction.Amount
+			} else if transaction.PaymentMethod == models.BorrowedGold {
+				goldTaken += transaction.GoldWeight
+			}
+		}
+
+		totalGoldTransaction += transaction.GoldWeight
+		totalAmountTransaction += transaction.Amount
+	}
+
+	var res map[string]any = make(map[string]any)
+	res["amountGiven"] = amountGiven
+	res["amountTaken"] = amountTaken
+	res["goldGiven"] = goldGiven
+	res["goldTaken"] = goldTaken
+	res["totalGoldTransaction"] = totalGoldTransaction
+	res["totalAmountTransaction"] = totalAmountTransaction
+	return res, nil
 }
